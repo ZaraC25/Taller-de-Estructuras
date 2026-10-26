@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Agenda Telefónica - Árbol Binario</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #search-btn {
+            background-color: #2ecc71;
+        }
+        #search-btn:hover {
+            background-color: #27ae60;
+        }
+        .result-box {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #ecf0f1;
+            text-align: center;
+            font-weight: bold;
+        }
+        #tree-container {
+            width: 100%;
+            height: 500px;
+            overflow: auto;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            background-color: #ffffff;
+        }
+        /* Estilos para los nodos del árbol D3 */
+        .node circle {
+            fill: #fff;
+            stroke: #3498db;
+            stroke-width: 3px;
+            cursor: pointer;
+            transition: fill 0.3s;
+        }
+        .node circle:hover {
+            fill: #e74c3c;
+        }
+        .node text {
+            font-size: 12px;
+            font-family: sans-serif;
+            fill: #2c3e50;
+        }
+        .link {
+            fill: none;
+            stroke: #95a5a6;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📞 Agenda Telefónica (Árbol Binario de Búsqueda)</h1>
+        <p>Estructura de Datos - Cuarto Semestre</p>
+    </div>
+
+    <div class="container">
+        <!-- Panel de Control (Izquierda) -->
+        <div class="panel" style="flex: 0.4;">
+            <h2>Insertar Contacto</h2>
+            <div class="form-group">
+                <label>Nombre:</label>
+                <input type="text" id="name-input" placeholder="Ej. Jhonatan">
+            </div>
+            <div class="form-group">
+                <label>Teléfono:</label>
+                <input type="text" id="phone-input" placeholder="Ej. 111-1111">
+            </div>
+            <button onclick="addContact()">Guardar en el Árbol</button>
+
+            <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+
+            <h2>Buscar Contacto</h2>
+            <div class="form-group">
+                <label>Nombre a buscar:</label>
+                <input type="text" id="search-input" placeholder="Ej. Diana">
+            </div>
+            <button id="search-btn" onclick="searchContact()">Buscar</button>
+
+            <div id="search-result" class="result-box" style="display: none;"></div>
+        </div>
+
+        <!-- Panel del Árbol (Derecha) -->
+        <div class="panel" style="flex: 0.6;">
+            <h2>Visualización del Árbol</h2>
+            <p style="font-size: 14px; color: #7f8c8d;">El nodo azul es la <b>Raíz</b>, los verdes son las <b>Hojas</b> y las líneas son las <b>Ramas</b>.</p>
+            <div id="tree-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Lógica para agregar contacto
+        function addContact() {
+            const name = document.getElementById('name-input').value;
+            const phone = document.getElementById('phone-input').value;
+
+            if (!name || !phone) {
+                alert("Por favor, llena ambos campos.");
+                return;
+            }
+
+            fetch('/api/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, phone: phone })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    document.getElementById('name-input').value = '';
+                    document.getElementById('phone-input').value = '';
+                    updateTree(); // Volver a dibujar el árbol
+                }
+            });
+        }
+
+        // Lógica para buscar contacto
+        function searchContact() {
+            const name = document.getElementById('search-input').value;
+            if(!name) return;
+
+            fetch(`/api/search?name=${encodeURIComponent(name)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultBox = document.getElementById('search-result');
+                resultBox.style.display = 'block';
+                if (data.status === 'found') {
+                    resultBox.style.backgroundColor = '#d4edda';
+                    resultBox.style.color = '#155724';
+                    resultBox.innerHTML = `📱 Teléfono de ${name}: <strong>${data.phone}</strong>`;
+                } else {
+                    resultBox.style.backgroundColor = '#f8d7da';
+                    resultBox.style.color = '#721c24';
+                    resultBox.innerHTML = `❌ ${data.message}`;
+                }
+            });
+        }
+
+        // --- LÓGICA DE D3.JS PARA DIBUJAR EL ÁRBOL ---
+        const margin = {top: 40, right: 90, bottom: 50, left: 90};
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const svg = d3.select("#tree-container")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Configuración del layout del árbol
+        const treemap = d3.tree().size([width, height]);
+
+        function updateTree() {
+            fetch('/api/tree')
+            .then(response => response.json())
+            .then(data => {
+                // Limpiar SVG
+                svg.selectAll("*").remove();
+
+                if (!data) return; // Si el árbol está vacío, no dibujar nada
+
+                // Convertir los datos JSON a una jerarquía de D3
+                let root = d3.hierarchy(data, d => {
+                    // D3 necesita que los hijos nulos no se dibujen
+                    return d.children ? d.children.filter(child => child !== null) : null;
+                });
+
+                // Asignar posiciones
+                let treeData = treemap(root);
+
+                // Dibujar las líneas (Ramas)
+                svg.selectAll(".link")
+                    .data(treeData.links())
+                    .enter().append("path")
+                    .attr("class", "link")
+                    .attr("d", d3.linkVertical()
+                        .x(d => d.x)
+                        .y(d => d.y));
+
+                // Dibujar los Nodos (Raíz, Ramas, Hojas)
+                let node = svg.selectAll(".node")
+                    .data(treeData.descendants())
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+
+                // Círculos de los nodos
+                node.append("circle")
+                    .attr("r", 20)
+                    .style("fill", d => d.children ? "#e1f5fe" : "#c8e6c9"); // Azul claro para ramas, verde para hojas
+
+                // Nombre en el nodo
+                node.append("text")
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "middle")
+                    .text(d => d.data.name.substring(0, 3)); // Mostrar solo 3 letras
+
+                // Etiqueta con nombre y teléfono completo debajo del nodo
+                node.append("text")
+                    .attr("dy", "2.5em")
+                    .attr("text-anchor", "middle")
+                    .style("font-weight", "bold")
+                    .style("fill", "#e74c3c")
+                    .text(d => d.data.name + " (" + d.data.phone + ")");
+            });
+        }
+
+        // Cargar el árbol al iniciar
+        window.onload = updateTree;
+    </script>
+</body>
+</html>
